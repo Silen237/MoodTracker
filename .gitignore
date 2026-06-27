@@ -1,0 +1,9 @@
+# Visual Studio
+.vs/
+bin/
+obj/
+*.user
+
+# 保護敏感設定
+appsettings.json
+appsettings.Development.json
