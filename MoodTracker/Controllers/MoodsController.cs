@@ -64,6 +64,66 @@ namespace MoodTracker.Controllers
             return Ok(mood);
         }
 
+        // 取得使用者的心情年/月統計資料
+        // GET /api/moods/states
+        [HttpGet("stats")]
+        public async Task<IActionResult> GetStats([FromQuery] int? year, [FromQuery] int? month)
+        {
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userIdClaim == null)
+            {
+                return Unauthorized(new { massage =$"無法辨識使用者" });
+            }
+            var userId = int.Parse(userIdClaim);
+
+            var query = _context.MoodEntries.Where(m => m.UserId == userId);
+
+            if (year.HasValue)
+            {
+                query = query.Where(m => m.RecordDate.Year == year.Value);
+            }
+            if (month.HasValue)
+            {
+                query = query.Where(m => m.RecordDate.Month == month.Value);
+            }
+
+            var moods = await query.ToListAsync();
+
+            var allowedMoods = new[] { "😄", "😊", "😐", "😟", "😭" };
+
+            // 計算每種 emoji 的數量
+            var counts = allowedMoods.ToDictionary(
+                emoji => emoji,
+                emoji => moods.Count(m => m.MoodType == emoji)
+            );
+
+            var maxCount = counts.Max(x => x.Value);
+
+            string mostFrequent;
+            if (maxCount == 0)
+            {
+                mostFrequent = "尚無紀錄";
+            }
+            else if (counts.Count(x => x.Value == maxCount) == counts.Count)
+            {
+                mostFrequent = "五個心情狀態一樣多";
+            }
+            else if (counts.Count(x => x.Value == maxCount) > 1)
+            {
+                mostFrequent = "目前有多個心情並列最多";
+            }
+            else
+            {
+                mostFrequent = counts.First(x => x.Value == maxCount).Key;
+            }
+
+            return Ok(new
+            {
+                total = moods.Count,
+                counts = counts,
+                mostFrequent = mostFrequent
+            });
+        }
 
         // POST /api/moods
         [HttpPost]
@@ -83,10 +143,23 @@ namespace MoodTracker.Controllers
 
             var userId = int.Parse(userIdClaim);
 
+            if (!string.IsNullOrWhiteSpace(request.Tags))
+            {
+                var tagList = request.Tags.Split(',').Select(t => t.Trim()).ToList();
+                foreach (var tag in tagList)
+                {
+                    if (tag.Length > 10)
+                    {
+                        return BadRequest(new { message = $"標籤 '{tag}' 長度超過 10 個字元" });
+                    }
+                }
+            }
+
             var newMood = new MoodEntry
             {
                 UserId = userId,
                 MoodType = request.MoodType,
+                Tags = request.Tags,
                 Content = request.Content,
                 RecordDate = DateOnly.FromDateTime(DateTime.Today)
             };
@@ -105,6 +178,18 @@ namespace MoodTracker.Controllers
             if (!allowedMoods.Contains(request.MoodType))
             {
                 return BadRequest(new { message = "MoodType 只能是 😄 😊 😐 😟 😭 其中一種" });
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Tags))
+            {
+                var tagList = request.Tags.Split(',').Select(t => t.Trim()).ToList();
+                foreach (var tag in tagList)
+                {
+                    if (tag.Length > 10)
+                    {
+                        return BadRequest(new { message = $"標籤 '{tag}' 長度超過 10 個字元" });
+                    }
+                }
             }
 
             var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value; // 從 JWT Token 的 Claims 讀取 userId
@@ -128,6 +213,7 @@ namespace MoodTracker.Controllers
 
             mood.MoodType = request.MoodType;
             mood.Content = request.Content;
+            mood.Tags = request.Tags;
 
             await _context.SaveChangesAsync();
 
@@ -169,12 +255,14 @@ namespace MoodTracker.Controllers
     {
         public string MoodType { get; set; } = string.Empty;
         public string? Content { get; set; }
+        public string? Tags { get; set; }
     }
 
     public class UpdateMoodRequest
     {
         public string MoodType { get; set; } = string.Empty;
         public string? Content { get; set; }
+        public string? Tags { get; set; }
     }
 }
 
