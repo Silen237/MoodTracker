@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Authorization;
 
 namespace MoodTracker.Controllers
 {
@@ -30,20 +31,20 @@ namespace MoodTracker.Controllers
         {
             if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Email))
             {
-                return BadRequest(new { message = "Username 和 Email 不可為空" });
+                return BadRequest(new {message = "Username 和 Email 不可為空"});
             }
 
             var emailExists = await _context.Users.AnyAsync(u => u.Email == request.Email);
             if(emailExists)
             {
-                return BadRequest(new { message = "Email 已被註冊" });
+                return BadRequest(new {message = "Email 已被註冊"});
             }
 
             var newUser = new User
             {
                 Username = request.Username,
                 Email = request.Email,
-                Password = request.Password // 先存明文，之後做加密
+                Password = BCrypt.Net.BCrypt.HashPassword(request.Password) // 用 BCrypt 加密密碼
             };
 
             _context.Users.Add(newUser);
@@ -67,10 +68,10 @@ namespace MoodTracker.Controllers
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Email == request.Email);
 
-            // 驗證帳號存在 + 密碼正確（目前明文比對）
-            if (user == null || user.Password != request.Password)
+            // 驗證帳號存在 + 密碼正確（加密比對）
+            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
             {
-                return Unauthorized(new { message = "帳號或密碼錯誤" });
+                return Unauthorized(new {message = "帳號或密碼錯誤"});
             }
 
             // 產生 JWT
@@ -81,7 +82,28 @@ namespace MoodTracker.Controllers
                 message = "登入成功",
                 token = token
             });
+        }
 
+        // DELETE /api/auth/me
+        [HttpDelete("me")]
+        [Authorize]
+        public async Task<IActionResult> DeleteUser()
+        {
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userIdClaim == null)
+            {
+                return Unauthorized(new {message = $"無法辨識使用者"});
+            }
+            var userId = int.Parse(userIdClaim);
+
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+            {
+                return NotFound(new {message = $"找不到 id={userId} 的使用者"});
+            }
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+            return Ok(new {message = "帳號已刪除"});
         }
 
         // 產生 JWT Token
