@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MoodTracker.Data;
 using MoodTracker.Models;
+using MoodTracker.DTOs;
 
 namespace MoodTracker.Controllers
 {
@@ -47,10 +48,18 @@ namespace MoodTracker.Controllers
             {
                 query = query.Where(m => m.RecordDate.Day == day.Value);
             }
-
-            // 依 RecordDate 排序
             var moods = await query.OrderBy(m => m.RecordDate).ToListAsync();
-            return Ok(moods);
+
+            var result = moods.Select(m => new MoodResponse
+            {
+                Id = m.Id,
+                MoodType = m.MoodType,
+                Content = m.Content,
+                Tags = m.Tags,
+                RecordDate = m.RecordDate
+            });
+
+            return Ok(result);
         }
 
         // GET /api/moods/{id}
@@ -61,7 +70,16 @@ namespace MoodTracker.Controllers
             if (mood == null)
                 return NotFound(new { message = $"找不到 id={id} 的紀錄" });
 
-            return Ok(mood);
+            var result = new MoodResponse
+            {
+                Id = mood.Id,
+                MoodType = mood.MoodType,
+                Content = mood.Content,
+                Tags = mood.Tags,
+                RecordDate = mood.RecordDate
+            };
+
+            return Ok(result);
         }
 
         // 取得使用者的心情年/月統計資料
@@ -157,7 +175,7 @@ namespace MoodTracker.Controllers
 
             var newMood = new MoodEntry
             {
-                UserId = userId,
+                Id = userId,
                 MoodType = request.MoodType,
                 Tags = request.Tags,
                 Content = request.Content,
@@ -167,7 +185,16 @@ namespace MoodTracker.Controllers
             _context.MoodEntries.Add(newMood);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetById), new { id = newMood.Id }, newMood);
+            var result = new MoodResponse
+            {
+                Id = newMood.Id,
+                MoodType = newMood.MoodType,
+                Content = newMood.Content,
+                Tags = newMood.Tags,
+                RecordDate = newMood.RecordDate
+            };
+
+            return CreatedAtAction(nameof(GetById), new { id = newMood.Id }, result);
         }
 
         // POST /api/moods/{id}
@@ -217,7 +244,16 @@ namespace MoodTracker.Controllers
 
             await _context.SaveChangesAsync();
 
-            return Ok(mood);
+            var result = new MoodResponse
+            {
+                Id = mood.Id,
+                MoodType = mood.MoodType,
+                Content = mood.Content,
+                Tags = mood.Tags,
+                RecordDate = mood.RecordDate
+            };
+
+            return Ok(result);
         }
 
         // DELETE /api/moods/{id}
