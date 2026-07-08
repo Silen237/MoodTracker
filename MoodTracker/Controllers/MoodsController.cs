@@ -175,7 +175,7 @@ namespace MoodTracker.Controllers
 
             var newMood = new MoodEntry
             {
-                Id = userId,
+                UserId = userId,
                 MoodType = request.MoodType,
                 Tags = request.Tags,
                 Content = request.Content,
@@ -183,6 +183,7 @@ namespace MoodTracker.Controllers
             };
 
             _context.MoodEntries.Add(newMood);
+            Console.WriteLine($"Trying to insert MoodEntry with UserId: {userId}");
             await _context.SaveChangesAsync();
 
             var result = new MoodResponse

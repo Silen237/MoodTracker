@@ -13,7 +13,7 @@ namespace MoodTracker.Models
         [MaxLength(100)]
         public string? Tags { get; set; } 
         public DateOnly RecordDate { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // 這筆 MoodEntry (紀錄) 屬於哪個 User
         public User User { get; set; } = null!;
