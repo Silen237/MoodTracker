@@ -26,4 +26,6 @@
     <Folder Include="Migrations\" />
   </ItemGroup>
 
+  <ProjectExtensions><VisualStudio><UserProperties properties_4launchsettings_1json__JsonSchema="https://acp-protocol.dev/schemas/v1/config.schema.json" /></VisualStudio></ProjectExtensions>
+
 </Project>
